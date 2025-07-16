@@ -1,0 +1,99 @@
+1. Use HTTP Methods Properly
+REST is based on standard HTTP methods, and each method should map to a CRUD operation:
+
+HTTP Method	Operation	Description
+GET	Read	Retrieve data from the server
+POST	Create	Add new data to the server
+PUT	Update/Replace	Replace an existing resource
+PATCH	Update/Modify	Modify part of a resource
+DELETE	Delete	Remove a resource
+
+2. Use Meaningful Resource URIs (Endpoints)
+Resources should be nouns, not verbs.
+
+Use plural forms (e.g., /users instead of /getUser).
+
+Structure:
+
+bash
+Copy
+Edit
+/users              → All users
+/users/123          → Specific user with ID 123
+/users/123/orders   → Orders of user 123
+3. Statelessness
+Every request must contain all the info needed to process it.
+
+The server should not store anything about the client session between requests.
+
+Example: Don’t rely on session; use tokens (e.g., JWT) for authentication.
+
+4. Use Proper HTTP Status Codes
+Always return appropriate status codes:
+| Code | Meaning |
+|------|--------------------------|
+| 200 | OK |
+| 201 | Created |
+| 204 | No Content |
+| 400 | Bad Request |
+| 401 | Unauthorized |
+| 403 | Forbidden |
+| 404 | Not Found |
+| 500 | Internal Server Error |
+
+5. Use JSON as the Default Format
+JSON is lightweight and widely used.
+
+Keep responses consistent:
+
+json
+Copy
+Edit
+{
+  "id": 1,
+  "name": "Vishal",
+  "email": "vishal@example.com"
+}
+6. Version Your API
+Use versioning to avoid breaking changes:
+
+bash
+Copy
+Edit
+/api/v1/users
+/api/v2/users
+7. Use Query Parameters for Filtering, Sorting, Pagination
+http
+Copy
+Edit
+GET /products?category=shoes&sort=price&page=2&limit=10
+8. Follow HATEOAS (Optional but Recommended)
+Include links in the response to guide the client:
+
+json
+Copy
+Edit
+{
+  "id": 123,
+  "name": "John",
+  "links": [
+    { "rel": "self", "href": "/users/123" },
+    { "rel": "orders", "href": "/users/123/orders" }
+  ]
+}
+9. Security Best Practices
+Use HTTPS always.
+
+Authenticate using tokens (JWT, OAuth).
+
+Validate inputs to avoid injection attacks.
+
+10. Consistency in Naming and Structure
+Stick to one style across the API.
+
+Example:
+
+Use camelCase for JSON fields: firstName
+
+Keep URL paths consistent: /users, not /Users or /user_list
+
