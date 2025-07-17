@@ -1,4 +1,4 @@
-require("dotenv").config()
+require("dotenv").config();
 const express = require("express");
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -10,7 +10,7 @@ app.use(express.json());
 
 // Server Port
 const PORT = process.env.PORT;
-console.log(PORT)
+console.log(PORT);
 // Connecting with MongoDb
 mongoose
   .connect(process.env.MONGODB_URL)
@@ -162,7 +162,7 @@ app.get("/users/profile", verifyToken, (req, res) => {
   }
 });
 
-app.patch("/users", verifyToken, async (req, res) => {
+app.patch("/users/status", verifyToken, async (req, res) => {
   try {
     if (req.user.role === "admin") {
       const adminId = await Users.findOne({ userRole: "admin" }, { _id: 1 });
@@ -285,6 +285,44 @@ app.patch("/products/status", verifyToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Something went wrong while updating product.",
+    });
+  }
+});
+
+app.patch("/products/stock", verifyToken, async (req, res) => {
+  try {
+    if (req.user.role === "admin") {
+      const adminId = await Users.findOne({ userRole: "admin" }, { _id: 1 });
+      const updateStock = await Product.findByIdAndUpdate(req.body.id, {
+        $inc: {
+          productStockCount: req.body.stock,
+        },
+        $set: {
+          modifiedBy: adminId,
+          updatedAt: new Date().toString(),
+        },
+      });
+      if (updateStock) {
+        return res.status(200).json({
+          success: true,
+          message: "Stock updated successfully.",
+        });
+      } else {
+        return res.status(404).json({
+          success: false,
+          message: "Product not found or stock unchanged.",
+        });
+      }
+    } else {
+      res.status(403).send({
+        success: false,
+        message: "Only admin can update stock.",
+      });
+    }
+  } catch (err) {
+    res.status(500).send({
+      success: false,
+      message: "Something went wrong while updating stock.",
     });
   }
 });
@@ -477,7 +515,7 @@ app.delete("/cart/:id", verifyToken, async (req, res) => {
 app.post("/orders", verifyToken, async (req, res) => {
   try {
     if (req.user.role === "user") {
-      const cart = await Cart.findOne({ userId: req.body.id });
+      const cart = await Cart.findOne({ userId: req.body.id, _id });
 
       if (!cart || cart.products.length === 0) {
         return res.status(204).json({ message: "Cart is empty." });
