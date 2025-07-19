@@ -2,11 +2,14 @@ require("dotenv").config();
 const express = require("express");
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const JWT_SECRET_KEY = process.env.SECRET_KEY;
+const JWT_ACCESS_SECRET_KEY = process.env.ACCESS_SECRET_KEY;
+const JWT_REFRESH_SECRET_KEY = process.env.REFRESH_SECRET_KEY;
+const cookieParser = require("cookie-parser");
 const mongoose = require("mongoose");
 let app = express();
 
 app.use(express.json());
+app.use(cookieParser());
 
 // Server Port
 const PORT = process.env.PORT;
@@ -75,6 +78,12 @@ const cartSchema = mongoose.Schema({
 
 const Cart = mongoose.model("cart", cartSchema);
 
+const tokenSchema = mongoose.Schema({
+  userToken: String,
+});
+
+const Token = mongoose.model("tokenBlacklists", tokenSchema);
+
 // User CRUD
 
 app.post("/signUp", async (req, res) => {
@@ -93,6 +102,33 @@ app.post("/signUp", async (req, res) => {
   res.status(201).json({ message: "User created...!" });
 });
 
+function generateToken(user) {
+  const accessToken = jwt.sign(
+    {
+      id: user._id,
+      name: user.userName,
+      role: user.userRole,
+      status: user.userStatus,
+    },
+    JWT_ACCESS_SECRET_KEY,
+    { expiresIn: "5m" }
+  );
+  console.log(accessToken);
+  const refreshToken = jwt.sign(
+    {
+      id: user._id,
+      name: user.userName,
+      role: user.userRole,
+      status: user.userStatus,
+    },
+    JWT_REFRESH_SECRET_KEY,
+    { expiresIn: "7d" }
+  );
+  console.log(refreshToken);
+
+  return { accessToken, refreshToken };
+}
+
 app.post("/login", async (req, res) => {
   const user = await Users.findOne({ userEmail: req.body.email });
   if (!user) {
@@ -109,19 +145,14 @@ app.post("/login", async (req, res) => {
   }
 
   console.log(user.userPassword);
-
-  const token = jwt.sign(
-    {
-      id: user._id,
-      name: user.userName,
-      email: user.userEmail,
-      role: user.userRole,
-      status: user.userStatus,
-    },
-    JWT_SECRET_KEY,
-    { expiresIn: "1h" }
-  );
-  res.json({ token: token });
+  const { accessToken, refreshToken } = generateToken(user);
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict",
+    path: "/refreshToken",
+  });
+  res.json({ token: accessToken });
 });
 
 function verifyToken(req, res, next) {
@@ -129,15 +160,15 @@ function verifyToken(req, res, next) {
   console.log(authHeader);
   const token = authHeader && authHeader.split(" ")[1];
   // console.log(token);
-
   if (!token) {
     console.log("Token missing");
     return res.status(401).json({ message: "Token missing" });
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET_KEY);
+    const decoded = jwt.verify(token, JWT_ACCESS_SECRET_KEY);
     req.user = decoded;
+    req.token = token;
     next();
   } catch (err) {
     console.log("Invalid Token");
@@ -145,7 +176,42 @@ function verifyToken(req, res, next) {
   }
 }
 
-app.get("/users/profile", verifyToken, (req, res) => {
+app.post("/refreshToken", (req, res) => {
+  const token = req.cookies.refreshToken;
+  console.log(token);
+  if (!token) return res.status(401).json({ message: "Token missing" });
+
+  try {
+    const payload = jwt.verify(token, JWT_REFRESH_SECRET_KEY);
+    const newAccessToken = jwt.sign(
+      {
+        id: payload.id,
+        name: payload.name,
+        role: payload.role,
+        status: payload.status,
+      },
+      JWT_ACCESS_SECRET_KEY,
+      { expiresIn: "15m" }
+    );
+    res.json({ accessToken: newAccessToken });
+  } catch {
+    return res.status(403).json({ message: "Invalid refresh token" });
+  }
+});
+
+app.use(verifyToken, async (req, res, next) => {
+  const blackListToken = await Token.findOne({ userToken: req.token });
+  console.log("user token", blackListToken);
+  if (blackListToken) {
+    res
+      .status(200)
+      .json({ message: "Token is blackList / please login again" });
+  } else {
+    next();
+  }
+});
+
+app.get("/users/profile", verifyToken, async (req, res) => {
   if (req.user.role === "user") {
     if (req.user.status === "blocked") {
       res.status(200).json({
@@ -205,6 +271,31 @@ app.delete("/users", verifyToken, async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ error: "Failed to delete user" });
+  }
+});
+
+app.post("/logout", verifyToken, async (req, res) => {
+  try {
+    const user = await Users.findOne({ _id: req.body.id });
+    const token = req.token;
+    console.log("user token :", token);
+
+    const blackListTokens = {
+      userToken: token,
+    };
+    console.log(blackListTokens);
+    await Token.create(blackListTokens);
+
+    if (user) {
+      res.status(200).json({ message: "Logout successful" });
+    } else {
+      res.status(404).json({ message: "user not found" });
+    }
+  } catch (err) {
+    console.log(err);
+    res
+      .status(500)
+      .json({ message: "Something went wrong while logout user." });
   }
 });
 
@@ -388,7 +479,7 @@ app.get("/dashboard", verifyToken, async (req, res) => {
   }
 });
 
-app.get("/admin/profile", verifyToken, (req, res) => {
+app.get("/admin/profile", verifyToken, async (req, res) => {
   if (req.user.role === "admin") {
     res
       .status(200)
