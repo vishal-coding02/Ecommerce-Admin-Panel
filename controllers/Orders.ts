@@ -1,10 +1,16 @@
-const Cart = require("../models/CartModel");
-const Orders = require("../models/OrderModel");
+import Cart from "../models/CartModel";
+import Orders from "../models/OrderModel";
 
-async function placeOrders(req, res) {
+import { AuthenticatedRequest } from "../interfaces/Users";
+import { Response } from "express";
+
+async function placeOrders(req: AuthenticatedRequest, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized. No user found." });
+  }
   try {
     if (req.user.role === "user") {
-      const cart = await Cart.findOne({ userId: req.body.id, _id });
+      const cart = await Cart.findOne({ userId: req.body.id });
 
       if (!cart || cart.products.length === 0) {
         return res.status(204).json({ message: "Cart is empty." });
@@ -40,7 +46,10 @@ async function placeOrders(req, res) {
   }
 }
 
-async function allOrders(req, res) {
+async function allOrders(req: AuthenticatedRequest, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized. No user found." });
+  }
   try {
     if (req.user.role === "admin") {
       const allOrders = await Orders.find({});
@@ -59,7 +68,10 @@ async function allOrders(req, res) {
   }
 }
 
-async function getUserOrders(req, res) {
+async function getUserOrders(req: AuthenticatedRequest, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized. No user found." });
+  }
   try {
     if (req.user.role === "user") {
       const myOrders = await Orders.findOne({ userId: req.params.id });
@@ -78,11 +90,15 @@ async function getUserOrders(req, res) {
   }
 }
 
-async function updateOrdersStatus(req, res) {
+async function updateOrdersStatus(req: AuthenticatedRequest, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized. No user found." });
+  }
   try {
     if (req.user.role === "admin") {
-      const updateStatus = await Orders.findByIdAndUpdate(req.body.id, {
-        orderStatus: req.body.status,
+      const { status, id }: { status: string; id: string } = req.body;
+      const updateStatus = await Orders.findByIdAndUpdate(id, {
+        orderStatus: status,
         updateAt: new Date(),
       });
 

@@ -1,7 +1,12 @@
-const Product = require("../models/ProductModel");
-const Users = require("../models/UserModel");
+import Product from "../models/ProductModel";
+import Users from "../models/UserModel";
+import { AuthenticatedRequest } from "../interfaces/Users";
+import { Response } from "express";
 
-async function createProducts(req, res) {
+async function createProducts(req: AuthenticatedRequest, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized. No user found." });
+  }
   if (req.user.role === "admin") {
     const newProduct = {
       productName: req.body.name,
@@ -20,7 +25,10 @@ async function createProducts(req, res) {
   }
 }
 
-async function allProducts(req, res) {
+async function allProducts(req: AuthenticatedRequest, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized. No user found." });
+  }
   try {
     if (req.user.role === "admin") {
       const products = await Product.find();
@@ -52,13 +60,20 @@ async function allProducts(req, res) {
   }
 }
 
-async function updateStatus(req, res) {
+async function updateStatus(req: AuthenticatedRequest, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized. No user found." });
+  }
   try {
     if (req.user.role === "admin") {
+      const {
+        category,
+        subcategory,
+      }: { category: string; subcategory: string[] } = req.body;
       const updatedProduct = await Product.updateMany(
-        { productCategory: req.body.category },
+        { productCategory: category },
         {
-          $push: { productSubcategory: [req.body.subcategory] },
+          $push: { productSubcategory: [subcategory] },
         }
       );
       if (updatedProduct) {
@@ -80,13 +95,17 @@ async function updateStatus(req, res) {
   }
 }
 
-async function updateStock(req, res) {
+async function updateStock(req: AuthenticatedRequest, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized. No user found." });
+  }
   try {
     if (req.user.role === "admin") {
+      const { id, stock }: { id: string; stock: number } = req.body;
       const adminId = await Users.findOne({ userRole: "admin" }, { _id: 1 });
-      const updateStock = await Product.findByIdAndUpdate(req.body.id, {
+      const updateStock = await Product.findByIdAndUpdate(id, {
         $inc: {
-          productStockCount: req.body.stock,
+          productStockCount: stock,
         },
         $set: {
           modifiedBy: adminId,
@@ -118,7 +137,10 @@ async function updateStock(req, res) {
   }
 }
 
-async function deleteProduct(req, res) {
+async function deleteProduct(req : AuthenticatedRequest, res : Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized. No user found." });
+  }
   try {
     if (req.user.role === "admin") {
       const deleteResult = await Product.deleteOne({ _id: req.body.id });

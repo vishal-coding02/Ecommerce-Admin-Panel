@@ -1,6 +1,12 @@
 const Token = require("../models/TokenModel");
+import { Response, NextFunction } from "express";
+import { AuthenticatedRequest } from "../interfaces/Users";
 
-const checkBlacklistedToken = async (req, res, next) => {
+const checkBlacklistedToken = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const blacklisted = await Token.findOne({ userToken: req.token });
 

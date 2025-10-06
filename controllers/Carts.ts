@@ -1,7 +1,13 @@
-const Product = require("../models/ProductModel");
-const Cart = require("../models/CartModel");
+import Product from "../models/UserModel";
+import Cart from "../models/CartModel";
+import { Response } from "express";
+import { AuthenticatedRequest } from "../interfaces/Users";
+import { ProductDocument } from "../interfaces/Products";
 
-async function addToCart(req, res) {
+async function addToCart(req: AuthenticatedRequest, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized. No user found." });
+  }
   try {
     if (req.user.role === "user") {
       const { product } = req.body;
@@ -9,10 +15,10 @@ async function addToCart(req, res) {
       let totalPrice = 0;
 
       for (let item of product) {
-        const productData = await Product.findOne(
+        const productData = (await Product.findOne(
           { productName: item.name },
           { productPrice: 1 }
-        );
+        )) as ProductDocument | null;
 
         if (productData) {
           totalPrice += productData.productPrice * item.quantity;
@@ -47,7 +53,10 @@ async function addToCart(req, res) {
   }
 }
 
-async function allCartItems(req, res) {
+async function allCartItems(req: AuthenticatedRequest, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized. No user found." });
+  }
   try {
     if (req.user.role === "user") {
       const myCart = await Cart.findOne({ userId: req.params.id });
@@ -79,7 +88,10 @@ async function allCartItems(req, res) {
   }
 }
 
-async function removeCart(req, res) {
+async function removeCart(req : AuthenticatedRequest, res : Response) {
+    if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized. No user found." });
+  }
   try {
     if (req.user.role === "user") {
       const deletedCart = await Cart.findOneAndDelete({

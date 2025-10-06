@@ -2,8 +2,11 @@ const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const JWT_ACCESS_SECRET_KEY = process.env.ACCESS_SECRET_KEY;
 const JWT_REFRESH_SECRET_KEY = process.env.REFRESH_SECRET_KEY;
+import { JwtPayload } from "../interfaces/token";
+import { Request, Response, NextFunction } from "express";
+import { AuthenticatedRequest } from "../interfaces/Users";
 
-function generateToken(user) {
+function generateToken(user: JwtPayload) {
   const accessToken = jwt.sign(
     {
       id: user._id,
@@ -30,7 +33,11 @@ function generateToken(user) {
   return { accessToken, refreshToken };
 }
 
-function verifyToken(req, res, next) {
+function verifyToken(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) {
   const authHeader = req.headers.authorization;
   console.log(authHeader);
   const token = authHeader && authHeader.split(" ")[1];
@@ -41,6 +48,10 @@ function verifyToken(req, res, next) {
   }
 
   try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized. No user found." });
+    }
+
     const decoded = jwt.verify(token, JWT_ACCESS_SECRET_KEY);
     req.user = decoded;
     req.token = token;
@@ -51,19 +62,19 @@ function verifyToken(req, res, next) {
   }
 }
 
-async function refreshToken(req, res) {
+async function refreshToken(req: Request, res: Response) {
   const token = req.cookies.refreshToken;
   console.log(token);
   if (!token) return res.status(401).json({ message: "Token missing" });
 
   try {
-    const payload = jwt.verify(token, JWT_REFRESH_SECRET_KEY);
+    const payload = jwt.verify(token, JWT_REFRESH_SECRET_KEY) as JwtPayload;
     const newAccessToken = jwt.sign(
       {
-        id: payload.id,
-        name: payload.name,
-        role: payload.role,
-        status: payload.status,
+        id: payload._id,
+        name: payload.userName,
+        role: payload.userRole,
+        status: payload.userStatus,
       },
       JWT_ACCESS_SECRET_KEY,
       { expiresIn: "15m" }
