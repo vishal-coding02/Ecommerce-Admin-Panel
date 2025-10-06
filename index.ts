@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const app = require("./app");
+import app from "./app"
 
 const PORT = process.env.PORT || 5000;
 
